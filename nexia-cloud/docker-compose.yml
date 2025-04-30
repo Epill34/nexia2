@@ -1,0 +1,87 @@
+
+
+services:
+  whisper-service:
+    build: ./whisper-service
+    ports:
+      - "8001:8000"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    restart: always
+    
+  tts-service:
+    build: ./tts-service
+    ports:
+      - "8002:8000"
+    restart: always
+    
+  ai-model-service:
+    build: ./ai-model-service
+    ports:
+      - "8003:8000"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    restart: always
+    
+  local-response-service:
+    build: ./local-response-service
+    ports:
+      - "8004:8000"
+    depends_on:
+      - mongodb
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+    restart: always
+    
+  quick-response-service:
+    build: ./quick-response-service
+    ports:
+      - "8005:8000"
+    depends_on:
+      - mongodb
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+    restart: always
+    
+  central-service:
+    build: ./central-service
+    ports:
+      - "8000:8000"
+    depends_on:
+      - whisper-service
+      - tts-service
+      - ai-model-service
+      - local-response-service
+      - quick-response-service
+      - mongodb
+    environment:
+      - WHISPER_SERVICE_URL=http://whisper-service:8000
+      - TTS_SERVICE_URL=http://tts-service:8000
+      - AI_MODEL_SERVICE_URL=http://ai-model-service:8000
+      - LOCAL_RESPONSE_SERVICE_URL=http://local-response-service:8000
+      - QUICK_RESPONSE_SERVICE_URL=http://quick-response-service:8000
+      - MONGODB_URI=${MONGODB_URI}
+    restart: always
+    
+  twilio-handler:
+    build: ./twilio-handler
+    ports:
+      - "8006:8000"
+    depends_on:
+      - central-service
+    environment:
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - CENTRAL_SERVICE_URL=http://central-service:8000
+    restart: always
+    
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    restart: always
+
+volumes:
+  mongodb_data:
